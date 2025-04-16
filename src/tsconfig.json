@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@entity/*": ["schemas/*"],
+      "@auth/*": ["authentication/*"],
+      "@authorization/*": ["authorization/*"],
+      "@interface/*": ["interfaces/*"],
+      "@const": ["zconstant"],
+      "@db/*": ["db/*"],
+      "@broker/*": ["broker/*"]
+    }
+  }
+}

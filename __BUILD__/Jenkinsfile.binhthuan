@@ -1,0 +1,51 @@
+pipeline {
+    environment {
+        REGISTRY_HOST = "registry.jee.vn"
+        REGISTRY_PUBLISHER = "bt"
+        REGISTRY_CRED = "registry"
+        PROJECT_NAME = "notificationserver"
+        
+        REMOTE_URL = "https://jenkins.vts-demo.com/job/notificationserver/build"
+        REMOTE_BUILD_TOKEN = "i6emHBI7Pfen2W8yH0k843oIMgWxbn5StCZULLzSFRvuDsyGarG2NXQbhZRqqfBW"
+
+        service = ""
+    }
+    agent any
+    stages {
+        stage('Clone repository') {
+            steps {
+                script {
+                    checkout scm
+                }
+            }
+        }
+        stage('Build image') {
+            steps {
+                script {
+                    service = docker.build("${REGISTRY_HOST}/${REGISTRY_PUBLISHER}/${PROJECT_NAME}:latest")
+                }
+            }
+        }
+        stage('Push image') {
+            steps {
+                script {
+                    docker.withRegistry("https://${REGISTRY_HOST}", REGISTRY_CRED) {
+                        service.push("latest")
+                    }
+                }
+            }
+        }
+        stage('Call Remote') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'jenkins_bt', usernameVariable: "USERNAME", passwordVariable: "PASSWORD")]) {
+                        sh """
+                            curl -u ${USERNAME}:${PASSWORD} -X GET \
+                            ${REMOTE_URL}?token=${REMOTE_BUILD_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+    }
+}

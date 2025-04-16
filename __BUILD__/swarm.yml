@@ -1,0 +1,57 @@
+version: '3.9'
+
+networks:
+  mongo-network:
+    external: true
+  kafka-network:
+    external: true
+  redis-network:
+    external: true
+  gateway-network:
+    external: true
+
+services:
+  notificationserver:
+    image: ${REGISTRY_HOST}/${REGISTRY_PUBLISHER}/${PROJECT_NAME}:latest
+    networks: 
+      - mongo-network
+      - kafka-network
+      - redis-network
+      - gateway-network
+    environment:
+      PORT: ${PORT}
+      MONGO_URI: ${MONGO_URI}
+      VAULT_ENDPOINT: ${VAULT_ENDPOINT}
+      VAULT_TOKEN: ${VAULT_TOKEN}
+      KAFKA_BROKER: ${KAFKA_BROKER}
+      ONESIGNAL_APPID: ${ONESIGNAL_APPID}
+      ONESIGNAL_APPKEY: ${ONESIGNAL_APPKEY}
+      ONESIGNAL_MOBILEID: ${ONESIGNAL_MOBILEID}
+      ONESIGNAL_MOBILEAPIKEY: ${ONESIGNAL_MOBILEAPIKEY}
+      ONESIGNAL_MOBILEBMSID: ${ONESIGNAL_MOBILEBMSID}
+      ONESIGNAL_MOBILEBMSAPIKEY: ${ONESIGNAL_MOBILEBMSAPIKEY}
+      ONESIGNAL_MOBILEWORKID: ${ONESIGNAL_MOBILEWORKID}
+      ONESIGNAL_MOBILEWORKAPIKEY: ${ONESIGNAL_MOBILEWORKAPIKEY}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      HOST_JEEACCOUNT_API: ${HOST_JEEACCOUNT_API}
+      MONGO_URI_USER: ${MONGO_URI_USER}
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=gateway-network
+        - traefik.constraint-label=traefik-public
+        - traefik.http.routers.${PROJECT_NAME}-http.rule=Host(`${SUBDOMAIN}.${DOMAIN}`)
+        - traefik.http.routers.${PROJECT_NAME}-http.entrypoints=http
+        - traefik.http.routers.${PROJECT_NAME}-http.middlewares=https-redirect,https-ratelimit
+        - traefik.http.routers.${PROJECT_NAME}-https.rule=Host(`${SUBDOMAIN}.${DOMAIN}`)
+        - traefik.http.routers.${PROJECT_NAME}-https.entrypoints=https
+        - traefik.http.routers.${PROJECT_NAME}-https.tls=true
+        - traefik.http.routers.${PROJECT_NAME}-https.tls.certresolver=le
+        - traefik.http.services.${PROJECT_NAME}.loadbalancer.server.port=${PORT}

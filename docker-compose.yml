@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7000:7000"
+    environment:
+      - PORT=7000
+      - BUCKET=dps-convert-pdf
+      - MINIO_SSL=true
+      - MINIO_SERVER=${MINIO_SERVER:-cdn.jee.vn}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-user}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-12345678@}
+      - KAFKA_BROKER=${KAFKA_BROKER:-kafka:9092}
+      - VAULT_ENDPOINT=${VAULT_ENDPOINT:-http://vault:8200}
+      - VAULT_TOKEN=${VAULT_TOKEN:-s.NW5fjSuYvDXSl1IzAwzIjpQ0}
+    volumes:
+      - ./temp:/usr/src/app/temp
+      - ./public:/usr/src/app/public
+    restart: unless-stopped

@@ -1,0 +1,27 @@
+pipeline {
+    environment {
+        SCANHOME = tool 'sonar-scanner'
+    }
+    agent any
+    tools {
+    nodejs 'nodejs'
+    }
+    stages {
+        stage('Clone repository') {
+            steps {
+                script {
+                    checkout scm
+                }
+            }
+        }
+        stage('Scan') {
+            steps {
+                withSonarQubeEnv(installationName: "notificationserver") {
+                    sh "${SCANHOME}/bin/sonar-scanner \
+                    -Dsonar.projectKey=notificationserver \
+                    -Dsonar.projectName=notificationserver"
+                }
+            }
+        }
+    }
+}

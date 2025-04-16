@@ -1,0 +1,110 @@
+pipeline {
+    environment {
+        REGISTRY_HOST = "registry.jee.vn"
+        REGISTRY_PUBLISHER = "dps"
+        REGISTRY_CRED = "registry"
+        PROJECT_NAME = "notificationserver"
+        DOMAIN = "jee.vn"
+        SUBDOMAIN = "notification"
+        STACK_NAME = "dpscore"
+
+        PORT = "7000"
+        MONGO_URI = "mongodb://root:LefThDsINJ@mongodb.mongodb.svc.cluster.local:27017/notification?authSource=admin&ssl=false"
+
+      
+        KAFKA_BROKER="kafka-headless.kafka.svc.cluster.local:9092"
+        ONESIGNAL_APPID="e306ec4a-df8c-439b-95fd-2f5e684f4f46"
+        ONESIGNAL_APPKEY="NmE2ZmVkMjctMTdiZC00ZjdiLWE2ODYtMmUwMTA1ZjcxNTg2"
+        ONESIGNAL_MOBILEID="d8eb87f2-994e-4941-949e-0a2990ee0cfc"
+        ONESIGNAL_MOBILEAPIKEY="ODkxNDM0NDYtZmFmOC00NTJiLTgxNDYtYzE5ZTJiMjYwZTc2"
+
+        ONESIGNAL_MOBILEBMSID="526c811a-cd1f-4a68-89c6-df5e8d9bfa57"
+        ONESIGNAL_MOBILEBMSAPIKEY="YWE3NmFhZTgtODAwYS00ZGYwLTkxNTQtODNiMmExNTA0NDNh"
+
+        ONESIGNAL_MOBILEWORKID="d2e9684d-e7dc-467b-b13b-9a900f3c7a7b"
+        ONESIGNAL_MOBILEWORKAPIKEY="ODYxMzQ4ZmYtYjcwMC00MTJmLTllMmEtZmJiNzY0MTdjM2Fm"
+
+        ONESIGNAL_MOBILECHATID="f8ae3f0e-bef9-4ff9-b888-b17b9906ec30"
+        ONESIGNAL_MOBILECHATAPIKEY="YzRmY2Q0NWUtNWE2Ni00MTQyLTg1ZmYtNWFlYjE1NzY3ODM0"
+
+        ONESIGNAL_MOBILEMEETID="57381282-0bc1-4ddd-92a6-3bf4ea055e4c"
+        ONESIGNAL_MOBILEMEETAPIKEY="OTMwZjIxOTEtYjM4Ny00MjFkLTg5ZGYtZGUzZTBhNmYxNTIw"
+
+        ONESIGNAL_MOBILECSSID="ca5ce1ea-ac1b-4e65-9b33-eda8eeac1e87"
+        ONESIGNAL_MOBILECSSAPIKEY="NGJmMjY1N2QtNmE2OC00YmIwLTg5ODQtNTk4MmI4YTBiZTVh"
+
+        ONESIGNAL_MOBILED247ID="ee1e424f-3813-42b6-92eb-d3c6b9de54af"
+        ONESIGNAL_MOBILED247APIKEY="MzBlZWI2ZDEtYzU1OC00YWIwLWI0MmQtMTg2OWJjZDA5YmFm"
+
+        ONESIGNAL_MOBILECSSCHATID="da56c7f0-7b42-40c8-8a2d-ae2053f83c43"
+        ONESIGNAL_MOBILECSSCHATAPIKEY="NzhkYjJiMmQtMzY3Yi00MmEzLWE1NmYtNTU2MzllYjRkNWJm"
+        
+        REDIS_HOST = "redis-master.redis.svc.cluster.local"
+        REDIS_PORT = "6379"
+        HOST_JEEACCOUNT_API = "http://jeeaccount-api-service.jeeaccount.svc.cluster.local:80"
+        service = ""
+
+        ONESIGNAL_MOBILEPYNID="1647de00-88a1-48bc-9a4f-643906c49d67"
+        ONESIGNAL_MOBILEPYNAPIKEY="YWU3MzgzYzAtYzFkZS00ZGM4LTk1NjctNjBkZDUwNWJlMjhi"
+
+        ONESIGNAL_MOBILEVTSDEMOID="13cadc4e-fd30-4dc2-8c40-21d266b53ae3"
+        ONESIGNAL_MOBILEVTSDEMOAPIKEY="os_v2_app_cpfnytx5gbg4fdcaehjgnnj24ogupkflu5outsueomddeyntyfiltpaciooowsy7usbtph3xt5rsqu4qmbteazmk2x7w6rwzlo2jo3q"
+
+        MONGO_URI_USER = "mongodb://root:LefThDsINJ@mongodb.mongodb.svc.cluster.local:27017/usermanagerment?authSource=admin&ssl=false"
+    
+    }
+    agent any
+    stages {
+
+        stage('Install Package') {
+            steps {
+                sh 'apt-get update'
+                sh 'apt-get install -y gettext-base'
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                script {
+                    checkout scm
+                }
+            }
+        }
+        // stage('Stack deploy') {
+        //     steps {
+        //         script {
+        //             docker.withRegistry("https://${REGISTRY_HOST}", REGISTRY_CRED) {
+        //                 dir("__BUILD__"){
+        //                     sh "docker stack deploy -c swarm.yml --with-registry-auth ${STACK_NAME}"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
+        stage("Install kubectl"){
+            steps {
+                sh """
+                    curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+                    chmod +x ./kubectl
+                    mv ./kubectl /usr/local/bin/kubectl
+                    kubectl version --client
+                """
+            }
+        }
+
+
+        stage('Deploy to Cluster') {
+            steps {
+                script {
+                    docker.withRegistry("https://${REGISTRY_HOST}", REGISTRY_CRED) {
+                        dir("__BUILD__"){
+                            sh "envsubst < deploy.yaml | kubectl apply -f -"
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+}

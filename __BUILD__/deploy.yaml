@@ -1,0 +1,189 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${PROJECT_NAME}
+  namespace: ${STACK_NAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${PROJECT_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${PROJECT_NAME}
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      containers:
+      - name: ${PROJECT_NAME} 
+        image: ${REGISTRY_HOST}/${REGISTRY_PUBLISHER}/${PROJECT_NAME}:latest
+        resources:
+          limits:
+            cpu: "1"
+            memory: "500Mi"
+          requests:
+            cpu: "0.5"
+            memory: "300Mi"
+        ports:
+        - containerPort: 7000
+        env:
+        - name: PORT
+          value: "7000"
+        - name: MONGO_URI
+          value: ${MONGO_URI}
+        - name: VAULT_ENDPOINT
+          value: ${VAULT_ENDPOINT}
+        - name: VAULT_TOKEN
+          value: ${VAULT_TOKEN}
+        - name: REDIS_HOST
+          value: ${REDIS_HOST}
+        - name: REDIS_PORT
+          value: "6379"
+        - name: KAFKA_BROKER
+          value: ${KAFKA_BROKER}
+        - name: ONESIGNAL_APPID
+          value: ${ONESIGNAL_APPID}
+        - name: ONESIGNAL_APPKEY
+          value: ${ONESIGNAL_APPKEY}
+        - name: ONESIGNAL_MOBILEID
+          value: ${ONESIGNAL_MOBILEID}
+        - name: ONESIGNAL_MOBILEAPIKEY
+          value: ${ONESIGNAL_MOBILEAPIKEY}
+        - name: ONESIGNAL_MOBILEBMSID
+          value: ${ONESIGNAL_MOBILEBMSID}
+        - name: ONESIGNAL_MOBILEBMSAPIKEY
+          value: ${ONESIGNAL_MOBILEBMSAPIKEY}
+        - name: HOST_JEEACCOUNT_API
+          value: ${HOST_JEEACCOUNT_API}
+        - name: ONESIGNAL_MOBILEWORKID
+          value: ${ONESIGNAL_MOBILEWORKID}
+        - name: ONESIGNAL_MOBILEWORKAPIKEY
+          value: ${ONESIGNAL_MOBILEWORKAPIKEY}
+        - name: ONESIGNAL_MOBILECHATID
+          value: ${ONESIGNAL_MOBILECHATID}
+        - name: ONESIGNAL_MOBILECHATAPIKEY
+          value: ${ONESIGNAL_MOBILECHATAPIKEY}
+        - name: ONESIGNAL_MOBILEMEETID
+          value: ${ONESIGNAL_MOBILEMEETID}
+        - name: ONESIGNAL_MOBILEMEETAPIKEY
+          value: ${ONESIGNAL_MOBILEMEETAPIKEY}
+        - name: ONESIGNAL_MOBILECSSID
+          value: ${ONESIGNAL_MOBILECSSID}
+        - name: ONESIGNAL_MOBILECSSAPIKEY
+          value: ${ONESIGNAL_MOBILECSSAPIKEY}
+        - name: ONESIGNAL_MOBILECSSCHATID
+          value: ${ONESIGNAL_MOBILECSSCHATID}
+        - name: ONESIGNAL_MOBILECSSCHATAPIKEY
+          value: ${ONESIGNAL_MOBILECSSCHATAPIKEY}
+        - name: ONESIGNAL_MOBILED247ID
+          value: ${ONESIGNAL_MOBILED247ID}
+        - name: ONESIGNAL_MOBILED247APIKEY
+          value: ${ONESIGNAL_MOBILED247APIKEY}
+        - name: ONESIGNAL_MOBILEPYNID
+          value: ${ONESIGNAL_MOBILEPYNID}
+        - name: ONESIGNAL_MOBILEPYNAPIKEY
+          value: ${ONESIGNAL_MOBILEPYNAPIKEY}
+        - name: ONESIGNAL_MOBILEVTSDEMOID
+          value: ${ONESIGNAL_MOBILEVTSDEMOID}
+        - name: ONESIGNAL_MOBILEVTSDEMOAPIKEY
+          value: ${ONESIGNAL_MOBILEVTSDEMOAPIKEY}
+        - name: MONGO_URI_USER
+          value: ${MONGO_URI_USER}
+
+# ---
+
+# apiVersion: autoscaling/v1
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: ${PROJECT_NAME}-hpa
+#   namespace: ${STACK_NAME}
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: ${PROJECT_NAME}
+#   minReplicas: 1
+#   maxReplicas: 10
+#   targetCPUUtilizationPercentage: 70
+
+---
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: secure-${PROJECT_NAME}
+  namespace: ${STACK_NAME}
+spec:
+  secretName: secure-${PROJECT_NAME}-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  commonName: ${SUBDOMAIN}.${DOMAIN}
+  dnsNames:
+  - ${SUBDOMAIN}.${DOMAIN}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${PROJECT_NAME}-service
+  namespace: ${STACK_NAME}
+spec:
+  selector:
+    app: ${PROJECT_NAME}
+  ports:
+    - name: http
+      port: 7000
+      targetPort: 7000
+  type: ClusterIP
+
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ${PROJECT_NAME}-ingress
+  namespace: ${STACK_NAME}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`${SUBDOMAIN}.${DOMAIN}`)
+      kind: Rule
+      services:
+        - name: ${PROJECT_NAME}-service
+          port: 7000
+  tls:
+    secretName: secure-${PROJECT_NAME}-tls
+
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: https-only
+  namespace: ${STACK_NAME}
+spec:
+  redirectScheme:
+    scheme: https
+
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ${PROJECT_NAME}-ingress-http
+  namespace: ${STACK_NAME}
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`${SUBDOMAIN}.${DOMAIN}`)
+      middlewares:
+        - name: https-only
+      kind: Rule
+      services:
+        - name: ${PROJECT_NAME}-service
+          port: 7000
